@@ -57,6 +57,7 @@ option(FAISS_ENABLE_RAFT "Enable RAFT for GPU indexes." OFF)
 option(FAISS_ENABLE_PYTHON "Build Python extension." ON)
 option(FAISS_ENABLE_C_API "Build C API." OFF)
 option(FAISS_USE_BMI2 "Enable the usage of BMI2 instruction set for x86" OFF)
+option(FAISS_USE_LTO "Enable Link-Time optimization" OFF)
 
 if(FAISS_ENABLE_GPU)
   set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
