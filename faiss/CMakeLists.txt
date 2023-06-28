@@ -231,9 +231,12 @@ if(NOT FAISS_OPT_LEVEL STREQUAL "avx2")
   set_target_properties(faiss_avx2 PROPERTIES EXCLUDE_FROM_ALL TRUE)
 endif()
 if(NOT WIN32)
-  target_compile_options(faiss_avx2 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt>)
+  if(FAISS_USE_BMI2)
+    set(USE_BMI2 -mbmi2)
+  endif()
+  target_compile_options(faiss_avx2 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt ${USE_BMI2}>)
 else()
-  # MSVC enables FMA with /arch:AVX2; no separate flags for F16C, POPCNT
+  # MSVC enables FMA with /arch:AVX2; no separate flags for F16C, POPCNT, BMI2.
   # Ref. FMA (under /arch:AVX2): https://docs.microsoft.com/en-us/cpp/build/reference/arch-x64
   # Ref. F16C (2nd paragraph): https://walbourn.github.io/directxmath-avx2/
   # Ref. POPCNT: https://docs.microsoft.com/en-us/cpp/intrinsics/popcnt16-popcnt-popcnt64
@@ -265,6 +268,11 @@ endif()
 
 target_compile_definitions(faiss PRIVATE FINTEGER=int)
 target_compile_definitions(faiss_avx2 PRIVATE FINTEGER=int)
+
+if(FAISS_USE_BMI2)
+  target_compile_definitions(faiss PRIVATE USE_BMI2=1)
+  target_compile_definitions(faiss_avx2 PRIVATE USE_BMI2=1)
+endif()
 
 find_package(OpenMP REQUIRED)
 target_link_libraries(faiss PRIVATE OpenMP::OpenMP_CXX)

@@ -121,6 +121,7 @@ Several options can be passed to CMake, among which:
   - `-DFAISS_OPT_LEVEL=avx2` in order to enable the required compiler flags to
   generate code using optimized SIMD instructions (possible values are `generic`
   and `avx2`, by increasing order of optimization),
+  - `-DFAISS_USE_BMI2=ON` in order to enable [BMI2 instruction](https://en.wikipedia.org/wiki/BMI2) set for x86, which allows to use a faster version of Scalar Quantizer. BMI2 is known to be very slow on all AMD CPUs prior to Zen3, so the default value is `OFF` (possible values are `ON` and `OFF`),
 - BLAS-related options:
   - `-DBLA_VENDOR=Intel10_64_dyn -DMKL_LIBRARIES=/path/to/mkl/libs` to use the
   Intel MKL BLAS implementation, which is significantly faster than OpenBLAS
