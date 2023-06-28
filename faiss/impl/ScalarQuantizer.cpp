@@ -74,18 +74,15 @@ struct Codec8bit {
     }
 
 #ifdef __AVX2__
-    static __m256 decode_8_components(const uint8_t* code, int i) {
-        uint64_t c8 = *(uint64_t*)(code + i);
-        __m128i c4lo = _mm_cvtepu8_epi32(_mm_set1_epi32(c8));
-        __m128i c4hi = _mm_cvtepu8_epi32(_mm_set1_epi32(c8 >> 32));
-        // __m256i i8 = _mm256_set_m128i(c4lo, c4hi);
-        __m256i i8 = _mm256_castsi128_si256(c4lo);
-        i8 = _mm256_insertf128_si256(i8, c4hi, 1);
-        __m256 f8 = _mm256_cvtepi32_ps(i8);
-        __m256 half = _mm256_set1_ps(0.5f);
-        f8 = _mm256_add_ps(f8, half);
-        __m256 one_255 = _mm256_set1_ps(1.f / 255.f);
-        return _mm256_mul_ps(f8, one_255);
+    static inline __m256 decode_8_components(const uint8_t* code, int i) {
+        const uint64_t c8 = *(uint64_t*)(code + i);
+        
+        const __m128i i8 = _mm_set1_epi64x(c8);
+        const __m256i i32 = _mm256_cvtepu8_epi32(i8);
+        const __m256 f8 = _mm256_cvtepi32_ps(i32);
+        const __m256 half_one_255 = _mm256_set1_ps(0.5f / 255.f);
+        const __m256 one_255 = _mm256_set1_ps(1.f / 255.f);
+        return _mm256_fmadd_ps(f8, one_255, half_one_255);
     }
 #endif
 };
@@ -100,7 +97,20 @@ struct Codec4bit {
     }
 
 #ifdef __AVX2__
-    static __m256 decode_8_components(const uint8_t* code, int i) {
+#ifdef USE_BMI2
+    static inline __m256 decode_8_components(const uint8_t* code, int i) {
+        const uint32_t c4 = *(uint32_t*)(code + (i >> 1));
+        const uint64_t vext = _pdep_u64(c4, 0x0f0f0f0f0f0f0f0fULL);
+
+        const __m128i i8 = _mm_set1_epi64x(vext);
+        const __m256i i32 = _mm256_cvtepi8_epi32(i8);
+        const __m256 f8 = _mm256_cvtepi32_ps(i32);
+        const __m256 half_one_255 = _mm256_set1_ps(0.5f / 15.f);
+        const __m256 one_255 = _mm256_set1_ps(1.f / 15.f);
+        return _mm256_fmadd_ps(f8, one_255, half_one_255);
+    }    
+#else
+    static inline __m256 decode_8_components(const uint8_t* code, int i) {
         uint32_t c4 = *(uint32_t*)(code + (i >> 1));
         uint32_t mask = 0x0f0f0f0f;
         uint32_t c4ev = c4 & mask;
@@ -119,6 +129,7 @@ struct Codec4bit {
         __m256 one_255 = _mm256_set1_ps(1.f / 15.f);
         return _mm256_mul_ps(f8, one_255);
     }
+#endif
 #endif
 };
 
@@ -167,10 +178,23 @@ struct Codec6bit {
     }
 
 #ifdef __AVX2__
-
+#ifdef USE_BMI2
+    static inline __m256 decode_8_components(const uint8_t* code, int i) {
+        const uint16_t* data16 = (const uint16_t*)(code + (i >> 2) * 3);
+        const uint32_t* data32 = (const uint32_t*)data16;
+        const uint64_t val = *data32 + ((uint64_t)data16[2] << 32);
+        const uint64_t vext = _pdep_u64(val, 0x3F3F3F3F3F3F3F3FULL);
+        const __m128i i8 = _mm_set1_epi64x(vext);
+        const __m256i i32 = _mm256_cvtepi8_epi32(i8);
+        const __m256 f8 = _mm256_cvtepi32_ps(i32);
+        const __m256 half_one_255 = _mm256_set1_ps(0.5f / 63.f);
+        const __m256 one_255 = _mm256_set1_ps(1.f / 63.f);
+        return _mm256_fmadd_ps(f8, one_255, half_one_255);
+    }
+#else
     /* Load 6 bytes that represent 8 6-bit values, return them as a
      * 8*32 bit vector register */
-    static __m256i load6(const uint16_t* code16) {
+    static inline __m256i load6(const uint16_t* code16) {
         const __m128i perm = _mm_set_epi8(
                 -1, 5, 5, 4, 4, 3, -1, 3, -1, 2, 2, 1, 1, 0, -1, 0);
         const __m256i shifts = _mm256_set_epi32(2, 4, 6, 0, 2, 4, 6, 0);
@@ -199,7 +223,7 @@ struct Codec6bit {
         __m256 one_63 = _mm256_set1_ps(1.f / 63.f);
         return _mm256_mul_ps(f8, one_63);
     }
-
+#endif
 #endif
 };
 
